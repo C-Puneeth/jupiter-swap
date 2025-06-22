@@ -4,6 +4,7 @@ import styles from './swap.module.css';
 import { useWallet } from '@solana/wallet-adapter-react';
 import { VersionedTransaction, Connection } from '@solana/web3.js';
 import React, { useState, useEffect, useCallback } from 'react';
+import { Buffer } from 'buffer';
 
 const assets = [
   { name: 'SOL', mint: 'So11111111111111111111111111111111111111112', decimals: 9},
@@ -62,33 +63,42 @@ export default function Swap() {
     ) => {
       setFromAmount(Number(event.target.value));
     };
-    
-  const debounceQuoteCall = useCallback(debounce(getQuote, 500), []);
+
+  async function getQuote(currentAmount: number) {
+    if (isNaN(currentAmount) || currentAmount <= 0) {
+      setToAmount(0);
+      setQuoteResponse(null);
+      return;
+    }
+
+    try {
+      const quote = await (
+        await fetch(
+          `https://quote-api.jup.ag/v6/quote?inputMint=${fromAsset.mint}&outputMint=${toAsset.mint}&amount=${currentAmount * Math.pow(10, fromAsset.decimals)}&slippage=0.5`
+        )
+      ).json();
+
+      if (quote && quote.outAmount) {
+        const outAmountNumber =
+          Number(quote.outAmount) / Math.pow(10, toAsset.decimals);
+        setToAmount(outAmountNumber);
+      } else {
+        setToAmount(0);
+      }
+
+      setQuoteResponse(quote);
+    } catch (e) {
+      setToAmount(0);
+      setQuoteResponse(null);
+      console.error('Error fetching quote:', e);
+    }
+  }
+
+  const debounceQuoteCall = useCallback(debounce(getQuote, 500), [fromAsset, toAsset]);
 
   useEffect(() => {
     debounceQuoteCall(fromAmount);
   }, [fromAmount, debounceQuoteCall]);
-
-  async function getQuote(currentAmount: number) {
-    if (isNaN(currentAmount) || currentAmount <= 0) {
-      console.error('Invalid fromAmount value:', currentAmount);
-      return;
-    }
-
-    const quote = await (
-      await fetch(
-        `https://quote-api.jup.ag/v6/quote?inputMint=${fromAsset.mint}&outputMint=${toAsset.mint}&amount=${currentAmount * Math.pow(10, fromAsset.decimals)}&slippage=0.5`
-      )
-    ).json();
-
-    if (quote && quote.outAmount) {
-      const outAmountNumber =
-        Number(quote.outAmount) / Math.pow(10, toAsset.decimals);
-      setToAmount(outAmountNumber);
-    }
-
-    setQuoteResponse(quote);
-  }
 
   async function signAndSendTransaction() {
     if (!wallet.connected || !wallet.signTransaction) {
@@ -98,8 +108,13 @@ export default function Swap() {
       return;
     }
 
+    if (!quoteResponse) {
+      console.error('No quote available');
+      return;
+    }
+
     // get serialized transactions for the swap
-    const { swapTransaction } = await (
+    const swapResult = await (
       await fetch('https://quote-api.jup.ag/v6/swap', {
         method: 'POST',
         headers: {
@@ -109,11 +124,15 @@ export default function Swap() {
           quoteResponse,
           userPublicKey: wallet.publicKey?.toString(),
           wrapAndUnwrapSol: true,
-          // feeAccount is optional. Use if you want to charge a fee.  feeBps must have been passed in /quote API.
-          // feeAccount: "fee_account_public_key"
         }),
       })
     ).json();
+
+    const swapTransaction = swapResult?.swapTransaction;
+    if (!swapTransaction) {
+      console.error('No swapTransaction returned from API');
+      return;
+    }
 
     try {
       const swapTransactionBuf = Buffer.from(swapTransaction, 'base64');
@@ -168,7 +187,6 @@ export default function Swap() {
           <input
             type="number"
             value={toAmount}
-            // onChange={(e) => setToAmount(Number(e.target.value))}
             className={styles.inputField}
             readOnly
           />
@@ -187,7 +205,12 @@ export default function Swap() {
         <button
           onClick={signAndSendTransaction}
           className={styles.button}
-          disabled={toAsset.mint === fromAsset.mint}
+          disabled={
+            toAsset.mint === fromAsset.mint ||
+            !wallet.connected ||
+            fromAmount <= 0 ||
+            !quoteResponse
+          }
         >
           Swap
         </button>

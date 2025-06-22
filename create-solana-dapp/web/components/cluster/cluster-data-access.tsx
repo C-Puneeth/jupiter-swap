@@ -1,19 +1,64 @@
 'use client';
 
+import React, { createContext, useContext, useState, ReactNode, useEffect } from "react";
 import { WalletAdapterNetwork } from '@solana/wallet-adapter-base';
 import { clusterApiUrl } from '@solana/web3.js';
 
-import { createContext, ReactNode, useContext } from 'react';
+export type Cluster = "mainnet-beta" | "testnet";
 
-export interface Cluster {
-  endpoint: string;
-  network?: ClusterNetwork;
+interface ClusterContextType {
+  cluster: Cluster;
+  setCluster: (cluster: Cluster) => void;
 }
-export enum ClusterNetwork {
-  Mainnet = 'mainnet-beta',
-  Testnet = 'testnet',
-  Devnet = 'devnet',
-  Custom = 'custom',
+
+const ClusterContext = createContext<ClusterContextType | undefined>(undefined);
+
+export const ClusterProvider = ({ children }: { children: ReactNode }) => {
+  const [cluster, setClusterState] = useState<Cluster>("mainnet-beta");
+
+  // Sync with backend
+  useEffect(() => {
+    fetch("/api/cluster")
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.cluster === "mainnet-beta" || data.cluster === "testnet") {
+          setClusterState(data.cluster);
+        }
+      });
+  }, []);
+
+  const setCluster = (cluster: Cluster) => {
+    setClusterState(cluster);
+    fetch("/api/cluster", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ cluster }),
+    });
+  };
+
+  return (
+    <ClusterContext.Provider value={{ cluster, setCluster }}>
+      {children}
+    </ClusterContext.Provider>
+  );
+};
+
+export function useCluster() {
+  const ctx = useContext(ClusterContext);
+  if (!ctx) throw new Error("useCluster must be used within ClusterProvider");
+  return ctx;
+}
+
+// Utility to map cluster to Solana endpoint
+export function getSolanaEndpoint(cluster: Cluster): string {
+  switch (cluster) {
+    case "mainnet-beta":
+      return "https://api.mainnet-beta.solana.com";
+    case "testnet":
+      return "https://api.testnet.solana.com";
+    default:
+      return "https://api.mainnet-beta.solana.com";
+  }
 }
 
 export function toWalletAdapterNetwork(
@@ -29,23 +74,4 @@ export function toWalletAdapterNetwork(
     default:
       return undefined;
   }
-}
-
-export interface ClusterProviderContext {
-  cluster: Cluster;
-}
-
-const Context = createContext<ClusterProviderContext>(
-  {} as ClusterProviderContext
-);
-
-export function ClusterProvider({ children }: { children: ReactNode }) {
-  const value: ClusterProviderContext = {
-    cluster: { endpoint: clusterApiUrl('mainnet-beta') },
-  };
-  return <Context.Provider value={value}>{children}</Context.Provider>;
-}
-
-export function useCluster() {
-  return useContext(Context);
 }

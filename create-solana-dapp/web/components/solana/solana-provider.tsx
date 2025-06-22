@@ -4,7 +4,6 @@ import dynamic from 'next/dynamic';
 
 import { WalletError } from '@solana/wallet-adapter-base';
 import {
-  AnchorWallet,
   ConnectionProvider,
   useConnection,
   useWallet,
@@ -13,10 +12,7 @@ import {
 import { WalletModalProvider } from '@solana/wallet-adapter-react-ui';
 import { SolflareWalletAdapter } from '@solana/wallet-adapter-solflare';
 import { ReactNode, useCallback, useMemo } from 'react';
-import {
-  toWalletAdapterNetwork,
-  useCluster,
-} from '../cluster/cluster-data-access';
+import { useCluster, getSolanaEndpoint } from '../cluster/cluster-data-access';
 
 require('@solana/wallet-adapter-react-ui/styles.css');
 
@@ -28,10 +24,14 @@ export const WalletButton = dynamic(
 
 export function SolanaProvider({ children }: { children: ReactNode }) {
   const { cluster } = useCluster();
-  const endpoint = useMemo(() => cluster.endpoint, [cluster]);
-  const wallets = useMemo(
-    () => [
-      new SolflareWalletAdapter({
+  const endpoint = getSolanaEndpoint(cluster);
+
+  return (
+    <ConnectionProvider endpoint={endpoint}>
+      {children}
+    </ConnectionProvider>
+  );
+}
         network: toWalletAdapterNetwork(cluster.network),
       }),
     ],
