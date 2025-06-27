@@ -47,12 +47,56 @@ export function AppLayout({ children }: { children: ReactNode }) {
             </span>
           </Link>
         </div>
-        <div>
+        <nav style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
+          <Link 
+            href="/swap" 
+            style={{ 
+              color: '#8be9fd', 
+              textDecoration: 'none',
+              padding: '0.5rem 1rem',
+              borderRadius: '6px',
+              transition: 'all 0.2s ease',
+              fontSize: '0.95rem',
+              fontWeight: 500
+            }}
+            onMouseOver={(e) => {
+              e.currentTarget.style.background = 'rgba(0, 255, 231, 0.1)';
+              e.currentTarget.style.color = '#00ffe7';
+            }}
+            onMouseOut={(e) => {
+              e.currentTarget.style.background = 'transparent';
+              e.currentTarget.style.color = '#8be9fd';
+            }}
+          >
+            Swap
+          </Link>
+          <Link 
+            href="/routes" 
+            style={{ 
+              color: '#8be9fd', 
+              textDecoration: 'none',
+              padding: '0.5rem 1rem',
+              borderRadius: '6px',
+              transition: 'all 0.2s ease',
+              fontSize: '0.95rem',
+              fontWeight: 500
+            }}
+            onMouseOver={(e) => {
+              e.currentTarget.style.background = 'rgba(0, 255, 231, 0.1)';
+              e.currentTarget.style.color = '#00ffe7';
+            }}
+            onMouseOut={(e) => {
+              e.currentTarget.style.background = 'transparent';
+              e.currentTarget.style.color = '#8be9fd';
+            }}
+          >
+            Routes
+          </Link>
           <WalletButton />
-        </div>
+        </nav>
       </div>
       {/* Main Content */}
-      <div style={{ flexGrow: 1, padding: '24px', position: 'relative', zIndex: 1 }}>
+      <div style={{ flexGrow: 1, position: 'relative', zIndex: 1 }}>
         {children}
       </div>
       {/* Footer */}
